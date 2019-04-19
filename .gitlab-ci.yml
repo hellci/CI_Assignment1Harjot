@@ -1,0 +1,59 @@
+image: jangrewe/gitlab-ci-android
+
+before_script:
+- export GRADLE_USER_HOME=$(pwd)/.gradle
+- chmod +x ./gradlew
+
+cache:
+  key: ${CI_PROJECT_ID}
+  paths:
+  - .gradle/
+
+stages:
+- build
+- test
+- release
+- deploy
+
+lintDebug:
+  stage: build
+  script:
+  - ./gradlew -Pci --console=plain :app:lintDebug -PbuildDir=lint
+
+testDebug:
+  stage: test
+  script:
+  - ./gradlew -Pci --console=plain :app:testDebug
+
+assembleDebug:
+  stage: build
+  script:
+  - ./gradlew assembleDebug
+
+assemble_release:
+  stage: release
+  script:
+  - ./gradlew assembleRelease
+  artifacts:
+    paths:
+    - app/build/outputs/apk/release
+    - CHANGELOG
+
+deploy_release:
+  image: python:3.5.2
+  stage: deploy
+  script:
+  - pip install requests
+  - git clone https://github.com/mega-arbuz/apk-release-deploy.git
+  - python apk-release-deploy/deploy.py
+    --release.dir=app/build/outputs/apk/release
+    --app.name=funnybee
+    --dropbox.token=$DROPBOX_TOKEN
+    --dropbox.folder=cicd_junhyoung_android
+    --changelog.file=CHANGELOG
+    --template.file=TEMPLATE
+    --zapier.hook=$ZAPIER_EMAIL_HOOK
+    --email.to=$EMAIL_TARGET
+  cache: {}
+  when: manual
+
